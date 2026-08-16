@@ -15,6 +15,9 @@ RUN cd backend && npm ci --omit=dev && npm cache clean --force
 COPY backend ./backend
 COPY frontend ./frontend
 
+# Seed gambar uploads (dipisah, supaya bisa di-copy ke volume saat start)
+COPY frontend/uploads ./seed-uploads
+
 WORKDIR /app/backend
 
 ENV NODE_ENV=production

@@ -14,6 +14,24 @@ const PORT = process.env.PORT || 4000;
 const UPLOAD_DIR = path.join(__dirname, '../frontend/uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
+// ── Seed gambar bawaan build ke uploads (supaya persist di volume) ──
+const SEED_DIR = path.join(__dirname, '../seed-uploads');
+if (fs.existsSync(SEED_DIR)) {
+  try {
+    let copied = 0;
+    for (const f of fs.readdirSync(SEED_DIR)) {
+      const dest = path.join(UPLOAD_DIR, f);
+      if (!fs.existsSync(dest)) {
+        fs.copyFileSync(path.join(SEED_DIR, f), dest);
+        copied++;
+      }
+    }
+    if (copied > 0) console.log(`🌱 Seed ${copied} gambar ke folder uploads`);
+  } catch (e) {
+    console.error('Gagal seed gambar:', e.message);
+  }
+}
+
 // ── Konfigurasi Multer ──
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),

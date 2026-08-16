@@ -15,10 +15,6 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Uploaded images (runtime data)
-frontend/uploads/
-frontend/uploads/*
-
 # File lama / backup
 frontend/index_old*
 index_old.html
