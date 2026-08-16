@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+.env
+**/.env
+.git
+.gitignore
+Dockerfile
+.dockerignore
+*.log
+README.md
+frontend/uploads
+frontend/uploads/**
+frontend/index_old*
+**/index_old*
+npm-debug.log
