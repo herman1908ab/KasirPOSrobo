@@ -263,6 +263,18 @@ INSERT INTO products (category_id, barcode, name, price, cost_price, stock, min_
   (7,'8999999070013','Betadine 5ml',             11000, 8000,  15,  5, 'botol', '🩹', NULL);
 
 -- ============================================================
+-- TABEL: visitor_logs (counter pengunjung halaman)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS visitor_logs (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ip_address VARCHAR(64)  NOT NULL DEFAULT '',
+  user_agent VARCHAR(255) NOT NULL DEFAULT '',
+  visited_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ip (ip_address),
+  INDEX idx_visited (visited_at)
+) ENGINE=InnoDB;
+
+-- ============================================================
 -- MIGRASI: Tambah kolom image_url jika database sudah ada
 -- Jalankan query ini jika sebelumnya sudah install tanpa kolom image_url
 -- ============================================================

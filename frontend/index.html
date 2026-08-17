@@ -1789,6 +1789,29 @@
         backdrop-filter: blur(2px);
       }
 
+      /* Visitor counter — kecil, pojok kiri bawah, samar */
+      #visitorBadge {
+        position: fixed;
+        left: 8px;
+        bottom: 8px;
+        z-index: 80;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(0, 0, 0, 0.30);
+        color: rgba(255, 255, 255, 0.75);
+        font-size: 10px;
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 500;
+        letter-spacing: 0.4px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        pointer-events: none;
+        user-select: none;
+        backdrop-filter: blur(1px);
+        white-space: nowrap;
+      }
+
       @media (max-width: 768px) {
         /* Body tidak overflow hidden di mobile agar bisa scroll */
         body {
@@ -2426,6 +2449,9 @@
     <!-- Mobile cart overlay -->
     <div class="panel-right-overlay" id="cartOverlay" onclick="toggleMobileCart()" style="display: none"></div>
 
+    <!-- Visitor counter -->
+    <div id="visitorBadge" title="Pengunjung halaman">👁 <span id="visitorCount">0</span></div>
+
     <div class="toast" id="toast"></div>
     <div id="printArea"></div>
 
@@ -2457,6 +2483,7 @@
         await loadCategories();
         await loadProducts();
         renderNumpad();
+        trackVisitor();
       }
 
       function updateClock() {
@@ -2472,6 +2499,16 @@
           pad = (n) => String(n).padStart(2, "0");
         const dt = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
         document.getElementById("trxId").textContent = `INV-${dt}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+      }
+
+      // Visitor counter — catat kunjungan & update badge pojok
+      async function trackVisitor() {
+        try {
+          const r = await apiFetch("/visitors", { method: "POST", body: "{}" });
+          if (r.success && r.data) {
+            document.getElementById("visitorCount").textContent = r.data.total_visits;
+          }
+        } catch (e) { /* abaikan, non-kritis */ }
       }
 
       // ══════════════════════════════════════════════════════════════

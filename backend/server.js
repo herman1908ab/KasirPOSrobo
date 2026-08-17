@@ -500,6 +500,43 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+// ══════════════════════════════════════════════════════════
+// ROUTES: VISITORS
+// ══════════════════════════════════════════════════════════
+
+// Auto-buat tabel visitor_logs (aman jika belum ada)
+db.query(`CREATE TABLE IF NOT EXISTS visitor_logs (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  ip_address VARCHAR(64) NOT NULL DEFAULT '',
+  user_agent VARCHAR(255) NOT NULL DEFAULT '',
+  visited_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_ip (ip_address),
+  INDEX idx_visited (visited_at)
+) ENGINE=InnoDB`)
+  .then(() => console.log('👁 Tabel visitor_logs siap'))
+  .catch(e => console.error('⚠️ Gagal buat tabel visitor_logs:', e.message));
+
+// Catat kunjungan baru (per akses halaman index)
+app.post('/api/visitors', async (req, res) => {
+  try {
+    const ip  = req.ip || req.socket.remoteAddress || 'unknown';
+    const ua  = (req.headers['user-agent'] || '').slice(0, 255);
+    await db.query('INSERT INTO visitor_logs (ip_address, user_agent) VALUES (?,?)', [ip, ua]);
+    const [v] = await db.query('SELECT COUNT(*) AS total_visits FROM visitor_logs');
+    const [u] = await db.query('SELECT COUNT(DISTINCT ip_address) AS unique_visitors FROM visitor_logs');
+    ok(res, { total_visits: v[0].total_visits, unique_visitors: u[0].unique_visitors }, 'Kunjungan dicatat');
+  } catch (e) { err(res, e.message, 500); }
+});
+
+// Ambil jumlah kunjungan
+app.get('/api/visitors/count', async (req, res) => {
+  try {
+    const [v] = await db.query('SELECT COUNT(*) AS total_visits FROM visitor_logs');
+    const [u] = await db.query('SELECT COUNT(DISTINCT ip_address) AS unique_visitors FROM visitor_logs');
+    ok(res, { total_visits: v[0].total_visits, unique_visitors: u[0].unique_visitors });
+  } catch (e) { err(res, e.message, 500); }
+});
+
 // ── Error handler multer ──
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
