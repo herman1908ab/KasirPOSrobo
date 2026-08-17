@@ -406,8 +406,19 @@ app.get('/api/transactions/:id', async (req, res) => {
 // ROUTES: REPORTS
 // ══════════════════════════════════════════════════════════
 app.get('/api/reports/summary', async (req, res) => {
-  const { date = new Date().toISOString().slice(0,10) } = req.query;
+  const { date, date_from, date_to, limit = 5 } = req.query;
   try {
+    // Bangun kondisi tanggal: pakai `date` (1 hari) atau rentang date_from/date_to
+    const tParams = [];
+    let tCond = '1=1';
+    if (date)           { tCond = 'DATE(created_at) = ?';           tParams.push(date); }
+    else if (date_from || date_to) {
+      const parts = [];
+      if (date_from) { parts.push('DATE(created_at) >= ?'); tParams.push(date_from); }
+      if (date_to)   { parts.push('DATE(created_at) <= ?'); tParams.push(date_to); }
+      tCond = parts.join(' AND ');
+    }
+
     const [summary] = await db.query(`
       SELECT
         COUNT(*) AS total_transactions,
@@ -416,17 +427,29 @@ app.get('/api/reports/summary', async (req, res) => {
         IFNULL(SUM(CASE WHEN payment_method='cash'  THEN total_amount ELSE 0 END),0) AS cash_revenue,
         IFNULL(SUM(CASE WHEN payment_method='debit' THEN total_amount ELSE 0 END),0) AS debit_revenue,
         IFNULL(SUM(CASE WHEN payment_method='qris'  THEN total_amount ELSE 0 END),0) AS qris_revenue
-      FROM transactions WHERE DATE(created_at) = ? AND payment_status = 'paid'`, [date]
+      FROM transactions WHERE ${tCond} AND payment_status = 'paid'`, tParams
     );
+
+    const tpParams = [];
+    let tpCond = '1=1';
+    if (date)           { tpCond = 'DATE(t.created_at) = ?';           tpParams.push(date); }
+    else if (date_from || date_to) {
+      const parts = [];
+      if (date_from) { parts.push('DATE(t.created_at) >= ?'); tpParams.push(date_from); }
+      if (date_to)   { parts.push('DATE(t.created_at) <= ?'); tpParams.push(date_to); }
+      tpCond = parts.join(' AND ');
+    }
+    tpParams.push(parseInt(limit) || 5);
+
     const [topProducts] = await db.query(`
       SELECT ti.product_name, ti.product_id, p.emoji, p.image_url,
              SUM(ti.quantity) AS total_qty, SUM(ti.subtotal) AS total_revenue
       FROM transaction_items ti
       JOIN transactions t ON t.id = ti.transaction_id
       LEFT JOIN products p ON p.id = ti.product_id
-      WHERE DATE(t.created_at) = ? AND t.payment_status = 'paid'
+      WHERE ${tpCond} AND t.payment_status = 'paid'
       GROUP BY ti.product_id, ti.product_name, p.emoji, p.image_url
-      ORDER BY total_qty DESC LIMIT 5`, [date]
+      ORDER BY total_qty DESC LIMIT ?`, tpParams
     );
     const [lowStock] = await db.query(
       'SELECT id, name, emoji, image_url, stock, min_stock FROM products WHERE stock <= min_stock AND is_active = 1 ORDER BY stock ASC'
@@ -436,12 +459,19 @@ app.get('/api/reports/summary', async (req, res) => {
 });
 
 app.get('/api/reports/daily', async (req, res) => {
+  const { date_from, date_to } = req.query;
   try {
+    const params = [];
+    let where = 'created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+    const parts = [];
+    if (date_from) { parts.push('DATE(created_at) >= ?'); params.push(date_from); }
+    if (date_to)   { parts.push('DATE(created_at) <= ?'); params.push(date_to); }
+    if (parts.length) where = parts.join(' AND ');
     const [rows] = await db.query(`
       SELECT DATE(created_at) AS date, COUNT(*) AS transactions, SUM(total_amount) AS revenue
       FROM transactions
-      WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND payment_status = 'paid'
-      GROUP BY DATE(created_at) ORDER BY date ASC`
+      WHERE ${where} AND payment_status = 'paid'
+      GROUP BY DATE(created_at) ORDER BY date ASC`, params
     );
     ok(res, rows);
   } catch (e) { err(res, e.message, 500); }
