@@ -533,6 +533,7 @@
       }
       .cart-items {
         flex: 1;
+        min-height: 0;
         overflow-y: auto;
         padding: 10px 12px;
       }
@@ -658,6 +659,7 @@
         background: #fff;
         overflow-y: auto;
         max-height: 430px;
+        flex-shrink: 0;
       }
       .cart-footer::-webkit-scrollbar {
         width: 3px;
@@ -1660,6 +1662,8 @@
           width: 100%;
           min-width: unset;
           height: 85vh;
+          max-height: 85vh;
+          padding-bottom: env(safe-area-inset-bottom);
           border-left: none;
           border-top: 2px solid var(--border);
           border-radius: 20px 20px 0 0;
@@ -1716,9 +1720,11 @@
           font-size: 10px;
         }
 
-        /* Cart footer scroll lebih tinggi */
+        /* Cart footer — area pembayaran dibatasi tingginya agar
+           tidak menutupi list item (scroll internal jika kepanjangan) */
         .cart-footer {
-          max-height: none;
+          max-height: 55vh;
+          flex-shrink: 0;
         }
 
         /* Master produk di mobile */
@@ -1769,6 +1775,18 @@
         }
         .modal-overlay {
           align-items: flex-end;
+        }
+      }
+
+      @media (min-width: 769px) and (max-width: 1100px) {
+        /* Tablet dalam layout desktop — cart sedikit lebih ramping,
+           footer pembayaran dibatasi agar tidak menutupi list item */
+        .panel-right {
+          width: 350px;
+          min-width: 350px;
+        }
+        .cart-footer {
+          max-height: 40vh;
         }
       }
 
