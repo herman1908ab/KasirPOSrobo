@@ -2484,6 +2484,35 @@
         await loadProducts();
         renderNumpad();
         trackVisitor();
+        setupCashKeyboard();
+      }
+
+      // Izinkan input nominal tunai via keyboard (termasuk numpad).
+      // Input cashInput sengaja readonly, jadi keydown ditangkap manual.
+      function setupCashKeyboard() {
+        document.addEventListener("keydown", (e) => {
+          const t = e.target;
+          const inField = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT");
+          if (inField && t.id !== "cashInput") return; // jangan ganggu input lain
+          const kasirActive = document.getElementById("view-kasir").classList.contains("active");
+          if (!kasirActive) return;
+          const cashVisible = document.getElementById("cashSection").style.display !== "none";
+          if (!cashVisible) return;
+          const payBtn = document.getElementById("payBtn");
+          const k = e.key;
+          if (/^[0-9]$/.test(k)) {
+            e.preventDefault();
+            numInput(k);
+          } else if (k === "Backspace") {
+            e.preventDefault();
+            numInput("⌫");
+          } else if (k === "Enter") {
+            if (!payBtn.disabled) {
+              e.preventDefault();
+              processPayment();
+            }
+          }
+        });
       }
 
       function updateClock() {
