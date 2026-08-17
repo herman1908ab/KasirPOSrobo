@@ -53,6 +53,7 @@ const upload = multer({
   }
 });
 
+app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
 app.use(express.static('../frontend'));   // sajikan frontend + /uploads/
