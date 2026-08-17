@@ -15,6 +15,12 @@ const pool = mysql.createPool({
   timezone:          '+07:00',       // WIB
 });
 
+// Pastikan setiap koneksi memakai zona waktu WIB (UTC+7),
+// agar CURRENT_TIMESTAMP (created_at/updated_at) tersimpan dalam WIB.
+pool.on('connection', (conn) => {
+  conn.query("SET time_zone = '+07:00'", () => {});
+});
+
 // Test koneksi saat startup
 pool.getConnection()
   .then(conn => {
