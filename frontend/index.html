@@ -2111,7 +2111,7 @@
               <button class="pay-method" data-method="qris" onclick="setPayMethod('qris')"><span class="pay-method-icon">📱</span>QRIS</button>
             </div>
             <div id="cashSection">
-              <div class="cash-input-wrap"><span class="cash-prefix">Rp</span><input class="cash-input" id="cashInput" type="text" placeholder="Masukkan nominal tunai..." readonly /></div>
+              <div class="cash-input-wrap"><span class="cash-prefix">Rp</span><input class="cash-input" id="cashInput" type="text" placeholder="Masukkan nominal tunai..." readonly onkeydown="cashKey(event)" /></div>
               <div class="numpad" id="numpad"></div>
               <div class="quick-cash" id="quickCash"></div>
               <div class="change-row" id="changeRow" style="display: none"><span>💰 Kembalian</span><span id="changeAmt" style="color: var(--green)">Rp 0</span></div>
@@ -2489,29 +2489,33 @@
 
       // Izinkan input nominal tunai via keyboard (termasuk numpad).
       // Input cashInput sengaja readonly, jadi keydown ditangkap manual.
+      function cashKey(e) {
+        const k = e.key;
+        if (/^[0-9]$/.test(k)) {
+          e.preventDefault();
+          numInput(k);
+        } else if (k === "Backspace") {
+          e.preventDefault();
+          numInput("⌫");
+        } else if (k === "Enter") {
+          const btn = document.getElementById("payBtn");
+          if (!btn.disabled) {
+            e.preventDefault();
+            processPayment();
+          }
+        }
+      }
       function setupCashKeyboard() {
+        // Saat fokus DI LUAR kolom input apa pun (body, tombol, kartu produk)
         document.addEventListener("keydown", (e) => {
           const t = e.target;
           const inField = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT");
-          if (inField && t.id !== "cashInput") return; // jangan ganggu input lain
+          if (inField) return; // kolom input ditangani sendiri-sendiri
           const kasirActive = document.getElementById("view-kasir").classList.contains("active");
           if (!kasirActive) return;
           const cashVisible = document.getElementById("cashSection").style.display !== "none";
           if (!cashVisible) return;
-          const payBtn = document.getElementById("payBtn");
-          const k = e.key;
-          if (/^[0-9]$/.test(k)) {
-            e.preventDefault();
-            numInput(k);
-          } else if (k === "Backspace") {
-            e.preventDefault();
-            numInput("⌫");
-          } else if (k === "Enter") {
-            if (!payBtn.disabled) {
-              e.preventDefault();
-              processPayment();
-            }
-          }
+          cashKey(e);
         });
       }
 
