@@ -146,6 +146,116 @@
         font-size: 11.5px;
         color: var(--text3);
       }
+
+      /* ── MASTER TICKER (kelola pengumuman) ── */
+      .ticker-manager {
+        background: #fff;
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        margin-bottom: 14px;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .tm-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .tm-head:hover {
+        background: var(--surface2);
+      }
+      .tm-title {
+        font-family: "Barlow Condensed", sans-serif;
+        font-weight: 700;
+        font-size: 15px;
+      }
+      .tm-count {
+        font-size: 11px;
+        font-weight: 700;
+        background: var(--red);
+        color: #fff;
+        border-radius: 10px;
+        padding: 1px 8px;
+        display: none;
+      }
+      .tm-toggle {
+        margin-left: auto;
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--blue);
+      }
+      .tm-body {
+        border-top: 2px solid var(--border);
+        padding: 12px 14px 6px;
+      }
+      .tm-add-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .tm-add-row input {
+        flex: 1;
+        padding: 9px 12px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        font-size: 13px;
+        font-family: inherit;
+      }
+      .tm-add-row input:focus {
+        outline: none;
+        border-color: var(--red);
+      }
+      .tm-add-btn {
+        background: var(--red);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 0 16px;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .tm-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 0;
+        border-top: 1px dashed var(--border);
+        font-size: 13px;
+      }
+      .tm-msg {
+        flex: 1;
+        word-break: break-word;
+      }
+      .tm-item.off .tm-msg {
+        opacity: 0.45;
+        text-decoration: line-through;
+      }
+      .tm-btn {
+        background: transparent;
+        border: 1.5px solid var(--border);
+        border-radius: 7px;
+        padding: 4px 9px;
+        font-size: 12px;
+        cursor: pointer;
+        color: var(--text2);
+        white-space: nowrap;
+      }
+      .tm-btn:hover {
+        border-color: var(--text3);
+      }
+      .tm-btn.del:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      .tm-empty {
+        padding: 4px 0 10px;
+        font-size: 12.5px;
+        color: var(--text3);
+      }
       .logo {
         display: flex;
         align-items: center;
@@ -2287,6 +2397,20 @@
             <div class="master-title">📦 Master Produk / Barang</div>
             <button class="btn-add" onclick="openProductForm()">+ Tambah Produk</button>
           </div>
+          <div class="ticker-manager">
+            <div class="tm-head" onclick="toggleTickerManager()">
+              <span class="tm-title">📢 Pengumuman Ticker</span>
+              <span class="tm-count" id="tmCount"></span>
+              <span class="tm-toggle" id="tmToggle">Kelola ▾</span>
+            </div>
+            <div class="tm-body" id="tickerManagerBody" style="display: none">
+              <div class="tm-add-row">
+                <input type="text" id="newTickerMsg" maxlength="255" placeholder="Tulis pengumuman untuk pelanggan, misal: Gratis antar min. Rp100rb..." onkeydown="if(event.key==='Enter')addTickerMessage()" />
+                <button class="tm-add-btn" onclick="addTickerMessage()">+ Tambah</button>
+              </div>
+              <div id="tickerMsgList"><div class="tm-empty">Belum ada pengumuman.</div></div>
+            </div>
+          </div>
           <div class="master-filters">
             <input id="masterSearch" type="text" placeholder="🔍 Cari nama / barcode..." style="flex: 1" oninput="loadMasterProducts()" />
             <select id="masterCatFilter" onchange="loadMasterProducts()">
@@ -2750,6 +2874,64 @@
           const dur = Math.max(18, Math.min(90, Math.round(w / 65)));
           wrap.style.setProperty("--ticker-dur", dur + "s");
         });
+      }
+
+      // ── MASTER TICKER: kelola pengumuman ──
+      let tickerMgrOpen = false;
+      function toggleTickerManager() {
+        tickerMgrOpen = !tickerMgrOpen;
+        document.getElementById("tickerManagerBody").style.display = tickerMgrOpen ? "block" : "none";
+        document.getElementById("tmToggle").textContent = tickerMgrOpen ? "Tutup ▴" : "Kelola ▾";
+        if (tickerMgrOpen) loadTickerMessages();
+      }
+
+      async function loadTickerMessages() {
+        const r = await apiFetch("/ticker-messages");
+        if (!r.success) return;
+        const data = r.data || [];
+        const active = data.filter((m) => m.is_active).length;
+        const countEl = document.getElementById("tmCount");
+        countEl.textContent = active + " aktif";
+        countEl.style.display = data.length ? "inline-block" : "none";
+        document.getElementById("tickerMsgList").innerHTML = data.length
+          ? data.map((m) => `
+      <div class="tm-item${m.is_active ? "" : " off"}">
+        <span class="tm-msg">${m.message}</span>
+        <button class="tm-btn" onclick="toggleTickerMessage(${m.id}, ${m.is_active})">${m.is_active ? "👁 Nonaktifkan" : "🚫 Aktifkan"}</button>
+        <button class="tm-btn del" onclick="delTickerMessage(${m.id})">🗑</button>
+      </div>`).join("")
+          : `<div class="tm-empty">Belum ada pengumuman.</div>`;
+      }
+
+      async function addTickerMessage() {
+        const inp = document.getElementById("newTickerMsg");
+        const msg = inp.value.trim();
+        if (!msg) return showToast("Tulis pesannya dulu ya!", "error");
+        const r = await apiFetch("/ticker-messages", { method: "POST", body: JSON.stringify({ message: msg }) });
+        if (r.success) {
+          inp.value = "";
+          showToast(r.message || "Pengumuman ditambahkan", "success");
+          loadTickerMessages();
+          loadTicker(); // refresh ticker yang sedang berjalan
+        } else showToast(r.message, "error");
+      }
+
+      async function toggleTickerMessage(id, isActive) {
+        const r = await apiFetch(`/ticker-messages/${id}`, { method: "PUT", body: JSON.stringify({ is_active: !isActive }) });
+        if (r.success) {
+          loadTickerMessages();
+          loadTicker();
+        } else showToast(r.message, "error");
+      }
+
+      async function delTickerMessage(id) {
+        if (!confirm("Hapus pengumuman ini?")) return;
+        const r = await apiFetch(`/ticker-messages/${id}`, { method: "DELETE" });
+        if (r.success) {
+          showToast(r.message || "Pengumuman dihapus", "success");
+          loadTickerMessages();
+          loadTicker();
+        } else showToast(r.message, "error");
       }
 
       // ══════════════════════════════════════════════════════════════
@@ -3595,7 +3777,7 @@
         document.querySelectorAll(".nav-tab").forEach((t) => t.classList.remove("active"));
         document.getElementById("view-" + name).classList.add("active");
         btn.classList.add("active");
-        if (name === "master") loadMasterProducts();
+        if (name === "master") { loadMasterProducts(); loadTickerMessages(); }
         if (name === "history") loadHistory();
         if (name === "report") loadReport();
       }

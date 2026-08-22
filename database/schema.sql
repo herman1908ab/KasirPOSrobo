@@ -275,6 +275,17 @@ CREATE TABLE IF NOT EXISTS visitor_logs (
 ) ENGINE=InnoDB;
 
 -- ============================================================
+-- TABEL: ticker_messages (pengumuman berjalan / news ticker)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS ticker_messages (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  message VARCHAR(255) NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_active (is_active)
+) ENGINE=InnoDB;
+
+-- ============================================================
 -- MIGRASI: Tambah kolom image_url jika database sudah ada
 -- Jalankan query ini jika sebelumnya sudah install tanpa kolom image_url
 -- ============================================================

@@ -512,11 +512,54 @@ app.get('/api/ticker', async (req, res) => {
        ORDER BY RAND()
        LIMIT 12`
     );
-    ok(res, {
-      promos,
-      // teks bebas dari env TICKER_TEXT, beberapa pesan dipisah tanda |
-      announcements: (process.env.TICKER_TEXT || '').split('|').map((s) => s.trim()).filter(Boolean),
-    });
+    // pengumuman dari database (dikelola via Master Produk)
+    let announcements = [];
+    try {
+      const [msgs] = await db.query('SELECT message FROM ticker_messages WHERE is_active = 1 ORDER BY id DESC');
+      announcements = msgs.map((m) => m.message);
+    } catch (e) { /* tabel belum siap, abaikan */ }
+    // tambahan teks dari env TICKER_TEXT (opsional), dipisah tanda |
+    const envTexts = (process.env.TICKER_TEXT || '').split('|').map((s) => s.trim()).filter(Boolean);
+    ok(res, { promos, announcements: [...announcements, ...envTexts] });
+  } catch (e) { err(res, e.message, 500); }
+});
+
+// ── Kelola pengumuman ticker (Master Ticker) ──
+app.get('/api/ticker-messages', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM ticker_messages ORDER BY id DESC');
+    ok(res, rows);
+  } catch (e) { err(res, e.message, 500); }
+});
+
+app.post('/api/ticker-messages', async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) return err(res, 'Pesan tidak boleh kosong', 400);
+    if (message.trim().length > 255) return err(res, 'Pesan maksimal 255 karakter', 400);
+    const [r] = await db.query('INSERT INTO ticker_messages (message) VALUES (?)', [message.trim()]);
+    ok(res, { id: r.insertId }, 'Pengumuman ditambahkan');
+  } catch (e) { err(res, e.message, 500); }
+});
+
+app.put('/api/ticker-messages/:id', async (req, res) => {
+  try {
+    const { message, is_active } = req.body;
+    if (message !== undefined) {
+      if (!message.trim()) return err(res, 'Pesan tidak boleh kosong', 400);
+      await db.query('UPDATE ticker_messages SET message = ? WHERE id = ?', [message.trim(), req.params.id]);
+    }
+    if (is_active !== undefined) {
+      await db.query('UPDATE ticker_messages SET is_active = ? WHERE id = ?', [is_active ? 1 : 0, req.params.id]);
+    }
+    ok(res, null, 'Pengumuman diperbarui');
+  } catch (e) { err(res, e.message, 500); }
+});
+
+app.delete('/api/ticker-messages/:id', async (req, res) => {
+  try {
+    await db.query('DELETE FROM ticker_messages WHERE id = ?', [req.params.id]);
+    ok(res, null, 'Pengumuman dihapus');
   } catch (e) { err(res, e.message, 500); }
 });
 
@@ -537,6 +580,17 @@ db.query(`CREATE TABLE IF NOT EXISTS visitor_logs (
 ) ENGINE=InnoDB`)
   .then(() => console.log('👁 Tabel visitor_logs siap'))
   .catch(e => console.error('⚠️ Gagal buat tabel visitor_logs:', e.message));
+
+// Auto-buat tabel pengumuman ticker
+db.query(`CREATE TABLE IF NOT EXISTS ticker_messages (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  message VARCHAR(255) NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_active (is_active)
+) ENGINE=InnoDB`)
+  .then(() => console.log('📢 Tabel ticker_messages siap'))
+  .catch(e => console.error('⚠️ Gagal buat tabel ticker_messages:', e.message));
 
 // Catat kunjungan baru (per akses halaman index)
 app.post('/api/visitors', async (req, res) => {
