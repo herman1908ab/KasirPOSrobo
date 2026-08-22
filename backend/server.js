@@ -5,6 +5,7 @@ const cors    = require('cors');
 const multer  = require('multer');
 const path    = require('path');
 const fs      = require('fs');
+const os      = require('os');
 const db      = require('./db');
 
 const app  = express();
@@ -554,8 +555,20 @@ app.use((req, res) => res.status(404).json({ success: false, message: 'Endpoint 
 // Start server
 app.listen(PORT, () => {
   console.log(`\n🚀 Alfamart POS Server berjalan di http://localhost:${PORT}`);
-  console.log(`🌐 Buka browser  : http://localhost:${PORT}`);
+
+  // Tampilkan IP lokal agar bisa diakses dari HP/tablet lain via WiFi yang sama
+  const ips = [];
+  Object.values(os.networkInterfaces()).flat().forEach((n) => {
+    if (n && n.family === 'IPv4' && !n.internal) ips.push(n.address);
+  });
+  ips.forEach((ip) => console.log(`📱 Akses dari perangkat lain : http://${ip}:${PORT}`));
+
   console.log(`📊 Database      : ${process.env.DB_NAME}`);
   console.log(`🏪 Toko          : ${process.env.STORE_NAME}`);
   console.log(`📁 Upload folder : ${UPLOAD_DIR}\n`);
+
+  // Auto-buka browser hanya saat mode lokal (Railway = production, tidak perlu)
+  if (process.env.NODE_ENV !== 'production' && process.platform === 'win32' && process.env.AUTO_OPEN_BROWSER !== '0') {
+    try { require('child_process').exec(`start "" "http://localhost:${PORT}"`); } catch (e) {}
+  }
 });
