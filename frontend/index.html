@@ -662,6 +662,56 @@
         flex-shrink: 1; /* boleh menyusut agar list item tetap terlihat */
         min-height: 0;
       }
+      /* ── Footer dua tahap: ringkasan → panel pembayaran ── */
+      #payDetail {
+        display: none;
+      }
+      .cart-footer.open #payDetail {
+        display: block;
+      }
+      .cart-footer.open #checkoutBtn {
+        display: none;
+      }
+      .checkout-btn {
+        width: 100%;
+        margin-top: 4px;
+        padding: 13px;
+        background: var(--blue);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-family: "Barlow Condensed", sans-serif;
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        cursor: pointer;
+        transition: all 0.15s;
+        box-shadow: 0 2px 10px rgba(37, 99, 235, 0.35);
+      }
+      .checkout-btn:hover {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+      }
+      .checkout-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .back-cart-btn {
+        width: 100%;
+        margin-top: 8px;
+        padding: 7px;
+        background: transparent;
+        border: none;
+        color: var(--text3);
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .back-cart-btn:hover {
+        color: var(--text2);
+        text-decoration: underline;
+      }
       .cart-footer::-webkit-scrollbar {
         width: 3px;
       }
@@ -1883,7 +1933,7 @@
           right: 0;
           width: 100%;
           min-width: unset;
-          height: 85vh;
+          height: auto;
           max-height: 85vh;
           padding-bottom: env(safe-area-inset-bottom);
           border-left: none;
@@ -2104,7 +2154,7 @@
               <p style="font-size: 12px">Pilih produk untuk memulai</p>
             </div>
           </div>
-          <div class="cart-footer">
+          <div class="cart-footer" id="cartFooter">
             <div class="summary-row"><span>Subtotal</span><span id="subtotal">Rp 0</span></div>
             <div class="summary-row tax"><span>PPN (11%)</span><span id="taxAmt">Rp 0</span></div>
             <hr class="divider" />
@@ -2112,22 +2162,30 @@
               <span class="total-label">TOTAL</span>
               <span class="total-amount" id="totalAmount">Rp 0</span>
             </div>
-            <div class="payment-label">Metode Pembayaran</div>
-            <div class="payment-methods">
-              <button class="pay-method active" data-method="cash" onclick="setPayMethod('cash')"><span class="pay-method-icon">💵</span>Tunai</button>
-              <button class="pay-method" data-method="debit" onclick="setPayMethod('debit')"><span class="pay-method-icon">💳</span>Debit</button>
-              <button class="pay-method" data-method="qris" onclick="setPayMethod('qris')"><span class="pay-method-icon">📱</span>QRIS</button>
+
+            <!-- Tahap 1: ringkasan + tombol lanjut -->
+            <button class="checkout-btn" id="checkoutBtn" onclick="openPayment()">💳 &nbsp;LANJUT KE PEMBAYARAN</button>
+
+            <!-- Tahap 2: panel pembayaran (terbuka saat checkout diklik) -->
+            <div id="payDetail">
+              <div class="payment-label">Metode Pembayaran</div>
+              <div class="payment-methods">
+                <button class="pay-method active" data-method="cash" onclick="setPayMethod('cash')"><span class="pay-method-icon">💵</span>Tunai</button>
+                <button class="pay-method" data-method="debit" onclick="setPayMethod('debit')"><span class="pay-method-icon">💳</span>Debit</button>
+                <button class="pay-method" data-method="qris" onclick="setPayMethod('qris')"><span class="pay-method-icon">📱</span>QRIS</button>
+              </div>
+              <div id="cashSection">
+                <div class="cash-input-wrap"><span class="cash-prefix">Rp</span><input class="cash-input" id="cashInput" type="text" placeholder="Masukkan nominal tunai..." readonly onkeydown="cashKey(event)" /></div>
+                <div class="numpad" id="numpad"></div>
+                <div class="quick-cash" id="quickCash"></div>
+                <div class="change-row" id="changeRow" style="display: none"><span>💰 Kembalian</span><span id="changeAmt" style="color: var(--green)">Rp 0</span></div>
+              </div>
+              <div id="noncashSection" style="display: none">
+                <div class="noncash-info" id="noncashInfo"></div>
+              </div>
+              <button class="pay-btn" id="payBtn" onclick="processPayment()" disabled>✓ &nbsp;PROSES PEMBAYARAN</button>
+              <button class="back-cart-btn" onclick="closePayment()">← Kembali ke keranjang</button>
             </div>
-            <div id="cashSection">
-              <div class="cash-input-wrap"><span class="cash-prefix">Rp</span><input class="cash-input" id="cashInput" type="text" placeholder="Masukkan nominal tunai..." readonly onkeydown="cashKey(event)" /></div>
-              <div class="numpad" id="numpad"></div>
-              <div class="quick-cash" id="quickCash"></div>
-              <div class="change-row" id="changeRow" style="display: none"><span>💰 Kembalian</span><span id="changeAmt" style="color: var(--green)">Rp 0</span></div>
-            </div>
-            <div id="noncashSection" style="display: none">
-              <div class="noncash-info" id="noncashInfo"></div>
-            </div>
-            <button class="pay-btn" id="payBtn" onclick="processPayment()" disabled>✓ &nbsp;PROSES PEMBAYARAN</button>
           </div>
         </div>
       </div>
@@ -2773,6 +2831,7 @@
         cashRaw = "";
         document.getElementById("cashInput").value = "";
         document.getElementById("changeRow").style.display = "none";
+        closePayment();
         renderCart();
         updateTotals();
         updatePayBtn();
@@ -2781,6 +2840,7 @@
         const c = document.getElementById("cartItems");
         document.getElementById("cartCount").textContent = cart.reduce((s, i) => s + i.qty, 0);
         if (!cart.length) {
+          closePayment();
           c.innerHTML = `<div class="cart-empty"><div class="cart-empty-icon">🛒</div><p>Keranjang kosong</p><p style="font-size:12px">Pilih produk untuk memulai</p></div>`;
           return;
         }
@@ -2865,6 +2925,18 @@
         updateChange();
         updatePayBtn();
       }
+      // ── Panel pembayaran dua tahap ──
+      function openPayment() {
+        if (!cart.length) {
+          showToast("Keranjang masih kosong!", "error");
+          return;
+        }
+        document.getElementById("cartFooter").classList.add("open");
+      }
+      function closePayment() {
+        const f = document.getElementById("cartFooter");
+        if (f) f.classList.remove("open");
+      }
       function updateChange() {
         const total = getTotal(),
           paid = parseInt(cashRaw || "0"),
@@ -2879,6 +2951,8 @@
       }
       function updatePayBtn() {
         const btn = document.getElementById("payBtn");
+        const checkout = document.getElementById("checkoutBtn");
+        if (checkout) checkout.disabled = !cart.length;
         if (!cart.length) {
           btn.disabled = true;
           return;
@@ -2977,6 +3051,7 @@
         document.getElementById("cashInput").value = "";
         document.getElementById("changeRow").style.display = "none";
         setPayMethod("cash");
+        closePayment();
         generateLocalTrxId();
         renderCart();
         updateTotals();
