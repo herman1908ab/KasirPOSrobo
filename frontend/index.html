@@ -2203,7 +2203,7 @@
     </div>
 
     <!-- NEWS TICKER - info promo & pengumuman -->
-    <div class="news-ticker" id="newsTicker" style="display: none">
+    <div class="news-ticker" id="newsTicker">
       <span class="ticker-badge">📢 INFO</span>
       <div class="ticker-viewport"><div class="ticker-track" id="tickerTrack"></div></div>
     </div>
@@ -2744,12 +2744,11 @@
         // konten diduplikasi 2x agar loop mulus (animasi translateX -50%)
         const half = items.join("");
         document.getElementById("tickerTrack").innerHTML = half + half;
-        wrap.style.setProperty("--ticker-dur", "32s");
+        wrap.classList.add("show"); // tampilkan dulu, baru ukur lebarnya
         requestAnimationFrame(() => {
           const w = document.getElementById("tickerTrack").scrollWidth / 2;
           const dur = Math.max(18, Math.min(90, Math.round(w / 65)));
           wrap.style.setProperty("--ticker-dur", dur + "s");
-          wrap.classList.add("show");
         });
       }
 
