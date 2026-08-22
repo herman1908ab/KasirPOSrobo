@@ -62,6 +62,90 @@
         height: 3px;
         background: var(--yellow);
       }
+
+      /* ── NEWS TICKER ── */
+      .news-ticker {
+        display: none;
+        align-items: stretch;
+        height: 30px;
+        background: #fff;
+        border-bottom: 2px solid var(--border);
+        overflow: hidden;
+        flex-shrink: 0;
+        position: relative;
+        z-index: 9;
+      }
+      .news-ticker.show {
+        display: flex;
+      }
+      .ticker-badge {
+        background: var(--red);
+        color: #fff;
+        font-family: "Barlow Condensed", sans-serif;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.8px;
+        padding: 0 14px;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        z-index: 2;
+        clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+      }
+      .ticker-viewport {
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+      }
+      .ticker-track {
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+        animation: tickerScroll var(--ticker-dur, 32s) linear infinite;
+        will-change: transform;
+      }
+      .news-ticker:hover .ticker-track {
+        animation-play-state: paused;
+      }
+      @keyframes tickerScroll {
+        from { transform: translateX(0); }
+        to   { transform: translateX(-50%); }
+      }
+      .ticker-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text2);
+        padding-right: 34px;
+      }
+      .ticker-item.promo {
+        color: var(--red-dark);
+      }
+      .ticker-item img {
+        width: 16px;
+        height: 16px;
+        object-fit: contain;
+        border-radius: 3px;
+      }
+      .ticker-item .t-tag {
+        background: var(--red);
+        color: #fff;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.4px;
+        padding: 2px 7px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        line-height: 1.2;
+      }
+      .ticker-item .t-price {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11.5px;
+        color: var(--text3);
+      }
       .logo {
         display: flex;
         align-items: center;
@@ -2118,6 +2202,12 @@
       </div>
     </div>
 
+    <!-- NEWS TICKER - info promo & pengumuman -->
+    <div class="news-ticker" id="newsTicker" style="display: none">
+      <span class="ticker-badge">📢 INFO</span>
+      <div class="ticker-viewport"><div class="ticker-track" id="tickerTrack"></div></div>
+    </div>
+
     <div class="main">
       <!-- ══ KASIR VIEW ══ -->
       <div class="view active" id="view-kasir">
@@ -2551,6 +2641,7 @@
         renderNumpad();
         trackVisitor();
         setupCashKeyboard();
+        loadTicker();
       }
 
       // Izinkan input nominal tunai via keyboard (termasuk numpad).
@@ -2632,6 +2723,34 @@
         const label = document.getElementById("dbLabel");
         dot.className = "db-dot " + (connected ? "connected" : "error");
         label.textContent = connected ? "MySQL Terhubung" : "Offline";
+      }
+
+      // ══════════════════════════════════════════════════════════════
+      // NEWS TICKER
+      // ══════════════════════════════════════════════════════════════
+      async function loadTicker() {
+        const wrap = document.getElementById("newsTicker");
+        const r = await apiFetch("/ticker");
+        if (!r.success) return;
+        const items = [];
+        (r.data.promos || []).forEach((p) => {
+          const visual = p.image_url ? `<img src="${p.image_url}" alt="">` : `<span>${p.emoji || "🏷️"}</span>`;
+          items.push(`<span class="ticker-item promo">${visual}<span>${p.name}</span><span class="t-tag">${p.promo_label}</span><span class="t-price">${fmtRp(p.price)}</span></span>`);
+        });
+        (r.data.announcements || []).forEach((t) => {
+          items.push(`<span class="ticker-item">📌 <span>${t}</span></span>`);
+        });
+        if (!items.length) return; // tidak ada isi -> strip tetap tersembunyi
+        // konten diduplikasi 2x agar loop mulus (animasi translateX -50%)
+        const half = items.join("");
+        document.getElementById("tickerTrack").innerHTML = half + half;
+        wrap.style.setProperty("--ticker-dur", "32s");
+        requestAnimationFrame(() => {
+          const w = document.getElementById("tickerTrack").scrollWidth / 2;
+          const dur = Math.max(18, Math.min(90, Math.round(w / 65)));
+          wrap.style.setProperty("--ticker-dur", dur + "s");
+          wrap.classList.add("show");
+        });
       }
 
       // ══════════════════════════════════════════════════════════════

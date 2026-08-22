@@ -502,6 +502,26 @@ app.get('/api/config', (req, res) => {
   });
 });
 
+// ── News ticker: produk yang lagi promo + pengumuman ──
+app.get('/api/ticker', async (req, res) => {
+  try {
+    const [promos] = await db.query(
+      `SELECT name, emoji, image_url, price, promo_label
+       FROM products
+       WHERE is_active = 1 AND promo_label IS NOT NULL AND promo_label <> ''
+       ORDER BY RAND()
+       LIMIT 12`
+    );
+    ok(res, {
+      promos,
+      // teks bebas dari env TICKER_TEXT, beberapa pesan dipisah tanda |
+      announcements: (process.env.TICKER_TEXT || '').split('|').map((s) => s.trim()).filter(Boolean),
+    });
+  } catch (e) { err(res, e.message, 500); }
+});
+
+// ══════════════════════════════════════════════════════════
+// ROUTES: VISITORS
 // ══════════════════════════════════════════════════════════
 // ROUTES: VISITORS
 // ══════════════════════════════════════════════════════════
