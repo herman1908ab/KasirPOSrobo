@@ -57,6 +57,9 @@ const upload = multer({
 app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
+//const path = require('path');
+
+app.use('/uploads', express.static(path.join(__dirname, '../frontend/uploads')));
 app.use(express.static('../frontend'));   // sajikan frontend + /uploads/
 
 // ──────────────────────────────────────────────────────────
