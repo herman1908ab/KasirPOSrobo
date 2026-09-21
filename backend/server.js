@@ -630,6 +630,9 @@ app.use((error, req, res, next) => {
 app.use((req, res) => res.status(404).json({ success: false, message: 'Endpoint tidak ditemukan' }));
 
 // Start server
+app.get('/', (req, res) => {
+  res.send('Backend KasirPOSrobo Berhasil Berjalan!');
+});
 app.listen(PORT, () => {
   console.log(`\n🚀 Alfamart POS Server berjalan di http://localhost:${PORT}`);
 
@@ -644,6 +647,8 @@ app.listen(PORT, () => {
   console.log(`🏪 Toko          : ${process.env.STORE_NAME}`);
   console.log(`📁 Upload folder : ${UPLOAD_DIR}\n`);
 
+// Penting untuk Vercel:
+module.exports = app;
   // Auto-buka browser hanya saat mode lokal (Railway = production, tidak perlu)
   if (process.env.NODE_ENV !== 'production' && process.platform === 'win32' && process.env.AUTO_OPEN_BROWSER !== '0') {
     try { require('child_process').exec(`start "" "http://localhost:${PORT}"`); } catch (e) {}
