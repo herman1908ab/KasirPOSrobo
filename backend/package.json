@@ -1,5 +1,5 @@
 {
-  "name": "alfamart-pos-backend",
+  "name": "backend",
   "version": "1.0.0",
   "description": "Backend API untuk Alfamart POS System",
   "main": "server.js",
