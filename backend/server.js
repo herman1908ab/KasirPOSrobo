@@ -12,12 +12,21 @@ const app  = express();
 const PORT = process.env.PORT || 4000;
 
 // ── Folder uploads ──
-const UPLOAD_DIR = path.join(__dirname, '../frontend/uploads');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const IS_VERCEL = !!process.env.VERCEL;
+
+// Di Vercel filesystem read-only (kecuali /tmp, dan sifatnya sementara)
+const UPLOAD_DIR = IS_VERCEL
+  ? path.join(os.tmpdir(), 'uploads')
+  : path.join(__dirname, '../frontend/uploads');
+try {
+  if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+} catch (e) {
+  console.error('Gagal membuat folder uploads:', e.message);
+}
 
 // ── Seed gambar bawaan build ke uploads (supaya persist di volume) ──
 const SEED_DIR = path.join(__dirname, '../seed-uploads');
-if (fs.existsSync(SEED_DIR)) {
+if (!IS_VERCEL && fs.existsSync(SEED_DIR)) {
   try {
     let copied = 0;
     for (const f of fs.readdirSync(SEED_DIR)) {
@@ -59,8 +68,9 @@ app.use(cors());
 app.use(express.json());
 //const path = require('path');
 
+// Catatan: di Vercel baris static ini diabaikan; frontend dilayani lewat vercel.json
 app.use('/uploads', express.static(path.join(__dirname, '../frontend/uploads')));
-app.use(express.static('../frontend'));   // sajikan frontend + /uploads/
+app.use(express.static(path.join(__dirname, '../frontend')));   // sajikan frontend + /uploads/
 
 // ──────────────────────────────────────────────────────────
 // HELPER
@@ -82,7 +92,7 @@ function generateInvoice() {
 function deleteOldImage(imagePath) {
   if (!imagePath) return;
   const full = path.join(UPLOAD_DIR, path.basename(imagePath));
-  if (fs.existsSync(full)) fs.unlinkSync(full);
+  try { if (fs.existsSync(full)) fs.unlinkSync(full); } catch (e) { console.error('Gagal hapus gambar:', e.message); }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -616,6 +626,11 @@ app.get('/api/visitors/count', async (req, res) => {
   } catch (e) { err(res, e.message, 500); }
 });
 
+// ── Health check (untuk cek backend hidup di Vercel) ──
+app.get('/api/health', (req, res) => {
+  res.send('Backend KasirPOSrobo Berhasil Berjalan!');
+});
+
 // ── Error handler multer ──
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {
@@ -627,30 +642,31 @@ app.use((error, req, res, next) => {
   res.status(500).json({ success: false, message: 'Internal server error' });
 });
 
+// ── 404 harus PALING TERAKHIR, setelah semua route ──
 app.use((req, res) => res.status(404).json({ success: false, message: 'Endpoint tidak ditemukan' }));
 
-// Start server
-app.get('/', (req, res) => {
-  res.send('Backend KasirPOSrobo Berhasil Berjalan!');
-});
-app.listen(PORT, () => {
-  console.log(`\n🚀 Alfamart POS Server berjalan di http://localhost:${PORT}`);
-
-  // Tampilkan IP lokal agar bisa diakses dari HP/tablet lain via WiFi yang sama
-  const ips = [];
-  Object.values(os.networkInterfaces()).flat().forEach((n) => {
-    if (n && n.family === 'IPv4' && !n.internal) ips.push(n.address);
-  });
-  ips.forEach((ip) => console.log(`📱 Akses dari perangkat lain : http://${ip}:${PORT}`));
-
-  console.log(`📊 Database      : ${process.env.DB_NAME}`);
-  console.log(`🏪 Toko          : ${process.env.STORE_NAME}`);
-  console.log(`📁 Upload folder : ${UPLOAD_DIR}\n`);
-
-// Penting untuk Vercel:
+// ── Wajib untuk Vercel: export app di level atas file ──
 module.exports = app;
-  // Auto-buka browser hanya saat mode lokal (Railway = production, tidak perlu)
-  if (process.env.NODE_ENV !== 'production' && process.platform === 'win32' && process.env.AUTO_OPEN_BROWSER !== '0') {
-    try { require('child_process').exec(`start "" "http://localhost:${PORT}"`); } catch (e) {}
-  }
-});
+
+// ── Jalankan server hanya jika bukan di Vercel (lokal / Railway) ──
+if (!IS_VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`\n🚀 Alfamart POS Server berjalan di http://localhost:${PORT}`);
+
+    // Tampilkan IP lokal agar bisa diakses dari HP/tablet lain via WiFi yang sama
+    const ips = [];
+    Object.values(os.networkInterfaces()).flat().forEach((n) => {
+      if (n && n.family === 'IPv4' && !n.internal) ips.push(n.address);
+    });
+    ips.forEach((ip) => console.log(`📱 Akses dari perangkat lain : http://${ip}:${PORT}`));
+
+    console.log(`📊 Database      : ${process.env.DB_NAME}`);
+    console.log(`🏪 Toko          : ${process.env.STORE_NAME}`);
+    console.log(`📁 Upload folder : ${UPLOAD_DIR}\n`);
+
+    // Auto-buka browser hanya saat mode lokal (Railway = production, tidak perlu)
+    if (process.env.NODE_ENV !== 'production' && process.platform === 'win32' && process.env.AUTO_OPEN_BROWSER !== '0') {
+      try { require('child_process').exec(`start "" "http://localhost:${PORT}"`); } catch (e) {}
+    }
+  });
+}
