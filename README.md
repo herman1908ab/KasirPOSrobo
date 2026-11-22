@@ -70,7 +70,38 @@ STORE_NAME=Alfamart Sudirman 01
 STORE_ADDRESS=Jl. Jend. Sudirman No.1, Jakarta Pusat
 STORE_PHONE=(021) 555-0101
 TAX_RATE=0.11
+
+# Opsional: kirim ringkasan struk setelah pembayaran berhasil
+TELEGRAM_BOT_TOKEN=token_dari_BotFather
+# Kosongkan untuk memasukkan Chat ID pelanggan saat pembayaran
+TELEGRAM_DEFAULT_CHAT_ID=
 ```
+
+### Notifikasi struk via Telegram
+
+1. Buat bot melalui Telegram `@BotFather`, lalu salin token-nya ke `TELEGRAM_BOT_TOKEN` pada `backend/.env`.
+2. Pelanggan perlu membuka bot tersebut dan mengirim `/start` sekali. Telegram tidak mengizinkan bot menghubungi pengguna yang belum pernah memulai percakapan.
+3. Saat pembayaran, masukkan Chat ID pelanggan pada kolom **Kirim struk Telegram**. Chat ID dapat diperoleh dari bot internal Anda atau bot pemeriksa ID yang tepercaya.
+
+Jika `TELEGRAM_DEFAULT_CHAT_ID` diisi, struk akan dikirim ke ID tersebut ketika kolom pelanggan dibiarkan kosong. Pengiriman notifikasi tidak membatalkan atau mengubah transaksi apabila Telegram sedang gagal dihubungi.
+
+### Notifikasi struk via WhatsApp
+
+Integrasi ini memakai **WhatsApp Cloud API dari Meta**. Tambahkan kredensial berikut ke `backend/.env`:
+
+```env
+WHATSAPP_ACCESS_TOKEN=token_akses_permanen_meta
+WHATSAPP_PHONE_NUMBER_ID=id_nomor_pengirim_dari_meta
+WHATSAPP_API_VERSION=v23.0
+WHATSAPP_DEFAULT_TO=
+# Opsional, tetapi diperlukan untuk mengirim di luar jendela 24 jam
+WHATSAPP_TEMPLATE_NAME=
+WHATSAPP_TEMPLATE_LANGUAGE=id
+```
+
+Masukkan nomor WhatsApp pelanggan saat pembayaran dalam format internasional tanpa `+`, contohnya `628123456789`. Integrasi memanggil endpoint WhatsApp Cloud API resmi untuk pesan teks dengan `Phone Number ID` dan Bearer token. [Referensi koleksi resmi Meta](https://www.postman.com/meta/whatsapp-business-platform/request/8gvd47s/send-text-message).
+
+Pengiriman teks bebas hanya dapat dilakukan dalam jendela percakapan WhatsApp (umumnya 24 jam setelah pelanggan menghubungi bisnis). Agar struk dikirim pada setiap pembayaran, buat dan setujui **utility template** Meta dengan tepat satu placeholder body `{{1}}`—misalnya: `Terima kasih. Berikut ringkasan struk Anda:\n{{1}}`—lalu isi `WHATSAPP_TEMPLATE_NAME` dan `WHATSAPP_TEMPLATE_LANGUAGE`. Di luar jendela tersebut backend otomatis menggunakan template ini; transaksi tetap tersimpan bila pengiriman ditolak.
 
 ### 3. Install Dependencies & Jalankan Server
 

@@ -963,6 +963,19 @@
         letter-spacing: 1px;
         margin-bottom: 8px;
       }
+      .telegram-input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 9px 11px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: var(--text);
+        background: var(--surface2);
+      }
+      .telegram-input:focus { outline: none; border-color: #229ED9; }
+      .telegram-help { margin: 5px 0 10px; font-size: 10.5px; line-height: 1.35; color: var(--text3); }
       .payment-methods {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -2105,7 +2118,7 @@
         .topbar-info {
           display: none;
         }
-        .nav-tab {
+        .nav-tab {  
           padding: 5px 10px;
           font-size: 11px;
         }
@@ -2383,6 +2396,12 @@
               <div id="noncashSection" style="display: none">
                 <div class="noncash-info" id="noncashInfo"></div>
               </div>
+              <div class="payment-label" style="margin-top: 12px">Kirim struk Telegram (opsional)</div>
+              <input class="telegram-input" id="telegramChatId" type="text" inputmode="numeric" autocomplete="off" placeholder="Chat ID pelanggan, contoh: 123456789" />
+              <div class="telegram-help">Pelanggan harus membuka bot toko dan menekan <strong>/start</strong> terlebih dahulu.</div>
+              <div class="payment-label" style="margin-top: 12px">Kirim struk WhatsApp (opsional)</div>
+              <input class="telegram-input" id="whatsappPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="Nomor WA, contoh: 628123456789" />
+              <div class="telegram-help">Gunakan format internasional tanpa tanda <strong>+</strong>. Pelanggan harus menyetujui penerimaan pesan WhatsApp dari toko.</div>
               <button class="pay-btn" id="payBtn" onclick="processPayment()" disabled>✓ &nbsp;PROSES PEMBAYARAN</button>
               <button class="back-cart-btn" onclick="closePayment()">← Kembali ke keranjang</button>
             </div>
@@ -2739,7 +2758,12 @@
       // ══════════════════════════════════════════════════════════════
       // CONFIG
       // ══════════════════════════════════════════════════════════════
-      const API = window.location.origin + "/api";
+      // const API = window.location.origin + "/api";
+      // const API = kasirposrobo-production.up.railway.app/ +"/api";
+
+       const API = window.location.hostname.includes("vercel.app") 
+        ? "https://kasirposrobo-production.up.railway.app/api" 
+        : window.location.origin + "/api";
       let config = { store_name: "Alfamart", tax_rate: 0.11, store_address: "", store_phone: "" };
       let categories = [];
       let products = [];
@@ -2824,6 +2848,40 @@
           }
         } catch (e) { /* abaikan, non-kritis */ }
       }
+
+      // ══════════════════════════════════════════════════════════════
+      // PRODUCT WATERMARK CENTRALIZED SCRIPT
+      // Atur watermark untuk semua gambar produk di sini.
+      // Ubah teks, posisi, style, atau set enabled = false untuk menghapus watermark.
+      // ══════════════════════════════════════════════════════════════
+      const ProductWatermark = {
+        enabled: true,
+        text: "DEMO POS ROBO",
+        render(imageUrl, alt = "", style = "width:100%;height:100%;object-fit:contain") {
+          if (!imageUrl) return "";
+          if (!this.enabled || !this.text) {
+            return `<img src="${imageUrl}" alt="${alt}" style="${style}">`;
+          }
+          return `
+            <div style="position:relative;display:inline-block;width:100%;height:100%;overflow:hidden;">
+              <img src="${imageUrl}" alt="${alt}" style="${style}">
+              <div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.65);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;pointer-events:none;z-index:2;letter-spacing:0.5px;box-shadow:0 1px 2px rgba(0,0,0,0.3);">${this.text}</div>
+            </div>
+          `;
+        },
+        renderDiagonal(imageUrl, alt = "", style = "width:100%;height:100%;object-fit:contain") {
+          if (!imageUrl) return "";
+          if (!this.enabled || !this.text) {
+            return `<img src="${imageUrl}" alt="${alt}" style="${style}">`;
+          }
+          return `
+            <div style="position:relative;display:inline-block;width:100%;height:100%;overflow:hidden;">
+              <img src="${imageUrl}" alt="${alt}" style="${style}">
+              <div style="position:absolute;top:50%;left:50%;transform:translate(-50%, -50%) rotate(-30deg);background:rgba(70,70,70,0.85);color:#fff;font-size:11px;font-weight:700;padding:4px 18px;border-radius:4px;pointer-events:none;z-index:2;letter-spacing:0.8px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.4);text-transform:uppercase;">${this.text}</div>
+            </div>
+          `;
+        }
+      };
 
       // ══════════════════════════════════════════════════════════════
       // API HELPERS
@@ -3030,15 +3088,14 @@
           imgWrap.className = "product-img-wrap";
 
           if (p.image_url) {
-            const img = document.createElement("img");
-            img.src = p.image_url;
-            img.alt = p.name;
-            img.loading = "lazy";
-            img.onerror = function () {
-              // Fallback ke emoji jika gambar gagal load
-              imgWrap.innerHTML = '<div class="product-emoji">' + (p.emoji || "📦") + "</div>";
-            };
-            imgWrap.appendChild(img);
+            imgWrap.innerHTML = ProductWatermark.renderDiagonal(p.image_url, p.name);
+            const imgEl = imgWrap.querySelector("img");
+            if (imgEl) {
+              imgEl.onerror = function () {
+                // Fallback ke emoji jika gambar gagal load
+                imgWrap.innerHTML = '<div class="product-emoji">' + (p.emoji || "📦") + "</div>";
+              };
+            }
           } else {
             const emojiDiv = document.createElement("div");
             emojiDiv.className = "product-emoji";
@@ -3283,6 +3340,10 @@
           paid_amount: paid,
           items: cart.map((i) => ({ product_id: i.id, product_name: i.name, quantity: i.qty })),
         };
+        const telegramChatId = document.getElementById("telegramChatId").value.trim();
+        if (telegramChatId) payload.telegram_chat_id = telegramChatId;
+        const whatsappPhone = document.getElementById("whatsappPhone").value.trim();
+        if (whatsappPhone) payload.whatsapp_phone = whatsappPhone;
         const r = await apiFetch("/transactions", { method: "POST", body: JSON.stringify(payload) });
         btn.disabled = false;
         btn.innerHTML = "✓ &nbsp;PROSES PEMBAYARAN";
@@ -3292,6 +3353,16 @@
         }
         lastTrxData = r.data;
         showToast(`✅ Transaksi ${r.data.transaction.invoice_number} berhasil!`, "success");
+        if (r.data.notifications?.telegram?.sent) {
+          showToast("📨 Ringkasan struk sudah dikirim ke Telegram.", "success");
+        } else if (telegramChatId && !r.data.notifications?.telegram?.skipped) {
+          showToast("⚠️ Transaksi berhasil, tetapi notifikasi Telegram belum terkirim.", "error");
+        }
+        if (r.data.notifications?.whatsapp?.sent) {
+          showToast("💬 Ringkasan struk sudah dikirim ke WhatsApp.", "success");
+        } else if (whatsappPhone && !r.data.notifications?.whatsapp?.skipped) {
+          showToast("⚠️ Transaksi berhasil, tetapi notifikasi WhatsApp belum terkirim.", "error");
+        }
         // Update stok lokal agar tampilan langsung sinkron
         cart.forEach((ci) => {
           const p = products.find((x) => x.id === ci.id);
@@ -3349,6 +3420,8 @@
         cashRaw = "";
         payMethod = "cash";
         document.getElementById("cashInput").value = "";
+        document.getElementById("telegramChatId").value = "";
+        document.getElementById("whatsappPhone").value = "";
         document.getElementById("changeRow").style.display = "none";
         setPayMethod("cash");
         closePayment();
@@ -3394,8 +3467,8 @@
             const profit = p.price - p.cost_price;
             return `<tr>
       <td style="display:flex;align-items:center;gap:10px;padding:8px 14px">
-        <div style="width:44px;height:44px;border-radius:8px;overflow:hidden;background:var(--surface2);flex-shrink:0;display:flex;align-items:center;justify-content:center;">
-          ${p.image_url ? `<img src="${p.image_url}" style="width:100%;height:100%;object-fit:contain;padding:4px">` : `<span style="font-size:22px">${p.emoji || "📦"}</span>`}
+        <div style="width:44px;height:44px;border-radius:8px;overflow:hidden;background:var(--surface2);flex-shrink:0;display:flex;align-items:center;justify-content:center;position:relative;">
+          ${p.image_url ? ProductWatermark.render(p.image_url, p.name, "width:100%;height:100%;object-fit:contain;padding:4px") : `<span style="font-size:22px">${p.emoji || "📦"}</span>`}
         </div>
         <div><strong>${p.name}</strong><br><span style="font-size:11px;color:var(--text3)">${p.unit}</span></div>
       </td>

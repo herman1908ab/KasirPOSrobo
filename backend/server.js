@@ -75,6 +75,130 @@ function generateInvoice() {
   const rand = Math.floor(Math.random() * 9000) + 1000;
   return `INV-${date}-${rand}`;
 }
+
+function buildReceiptMessage(transaction, items) {
+  const money = value => `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
+  const method = { cash: 'Tunai', debit: 'Kartu Debit', qris: 'QRIS' }[transaction.payment_method] || transaction.payment_method;
+  const date = new Date(transaction.created_at).toLocaleString('id-ID', {
+    dateStyle: 'medium', timeStyle: 'medium', hour12: false
+  });
+  const itemLines = items.map(item =>
+    `- ${item.product_name} (${item.quantity} x ${money(item.product_price)}) = ${money(item.subtotal)}`
+  );
+  return [
+    '🧾 STRUK PEMBELIAN',
+    `No. transaksi: ${transaction.invoice_number}`,
+    `Tanggal: ${date}`,
+    `Kasir: ${transaction.cashier_name || '-'}`,
+    '',
+    'Belanja:',
+    ...itemLines,
+    '',
+    `Subtotal: ${money(transaction.subtotal)}`,
+    `PPN: ${money(transaction.tax_amount)}`,
+    `TOTAL: ${money(transaction.total_amount)}`,
+    `Pembayaran (${method}): ${money(transaction.paid_amount)}`,
+    transaction.payment_method === 'cash' ? `Kembalian: ${money(transaction.change_amount)}` : '',
+    '',
+    'Terima kasih telah berbelanja!'
+  ].filter(Boolean).join('\n');
+}
+
+// Mengirim salinan ringkas struk ke Telegram. Token hanya disimpan di server
+// melalui environment variable; jangan pernah dikirim ke browser.
+async function sendTelegramReceipt(transaction, items, requestedChatId) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = String(requestedChatId || process.env.TELEGRAM_DEFAULT_CHAT_ID || '').trim();
+  if (!token || !chatId) return { sent: false, skipped: true };
+
+  // Chat ID personal/grup Telegram berbentuk angka (grup biasanya diawali -).
+  if (!/^-?\d+$/.test(chatId)) {
+    return { sent: false, skipped: true, reason: 'Chat ID Telegram tidak valid' };
+  }
+
+  const text = buildReceiptMessage(transaction, items);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: text.slice(0, 4096) }),
+      signal: controller.signal
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.description || 'Telegram menolak pesan');
+    return { sent: true };
+  } catch (e) {
+    // Pembayaran sudah tersimpan; kegagalan notifikasi tidak boleh membatalkan transaksi.
+    console.error(`Notifikasi Telegram untuk ${transaction.invoice_number} gagal:`, e.message);
+    return { sent: false, error: 'Notifikasi Telegram gagal dikirim' };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Mengirim ringkasan struk melalui WhatsApp Cloud API (Meta).
+async function sendWhatsAppReceipt(transaction, items, requestedPhone) {
+  const token = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const recipient = String(requestedPhone || process.env.WHATSAPP_DEFAULT_TO || '').replace(/[^0-9]/g, '');
+  const apiVersion = process.env.WHATSAPP_API_VERSION || 'v23.0';
+  const templateName = String(process.env.WHATSAPP_TEMPLATE_NAME || '').trim();
+  const templateLanguage = String(process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'id').trim();
+  if (!token || !phoneNumberId || !recipient) return { sent: false, skipped: true };
+
+  // WhatsApp Cloud API memakai nomor E.164 tanpa karakter +, contoh 628123456789.
+  if (!/^\d{8,15}$/.test(recipient)) {
+    return { sent: false, skipped: true, reason: 'Nomor WhatsApp harus format internasional' };
+  }
+  if (!/^v\d+\.\d+$/.test(apiVersion)) {
+    return { sent: false, skipped: true, reason: 'Versi API WhatsApp tidak valid' };
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+  try {
+    const receiptText = buildReceiptMessage(transaction, items);
+    // Bila template dikonfigurasi, kirim sebagai utility template agar dapat
+    // digunakan di luar jendela percakapan 24 jam WhatsApp.
+    const message = templateName
+      ? {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: recipient,
+          type: 'template',
+          template: {
+            name: templateName,
+            language: { code: templateLanguage },
+            components: [{ type: 'body', parameters: [{ type: 'text', text: receiptText.slice(0, 1024) }] }]
+          }
+        }
+      : {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: recipient,
+          type: 'text',
+          text: { preview_url: false, body: receiptText.slice(0, 4096) }
+        };
+    const response = await fetch(`https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(message),
+      signal: controller.signal
+    });
+    const result = await response.json();
+    if (!response.ok || result.error) throw new Error(result.error?.message || 'WhatsApp menolak pesan');
+    return { sent: true };
+  } catch (e) {
+    // Pembayaran sudah tersimpan; kegagalan notifikasi tidak boleh membatalkan transaksi.
+    console.error(`Notifikasi WhatsApp untuk ${transaction.invoice_number} gagal:`, e.message);
+    return { sent: false, error: 'Notifikasi WhatsApp gagal dikirim' };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 // Hapus file lama jika ada
 function deleteOldImage(imagePath) {
   if (!imagePath) return;
@@ -292,7 +416,7 @@ app.patch('/api/products/:id/restock', async (req, res) => {
 // ROUTES: TRANSACTIONS
 // ══════════════════════════════════════════════════════════
 app.post('/api/transactions', async (req, res) => {
-  const { cashier_id = 1, items, payment_method = 'cash', paid_amount, notes } = req.body;
+  const { cashier_id = 1, items, payment_method = 'cash', paid_amount, notes, telegram_chat_id, whatsapp_phone } = req.body;
   if (!items || !items.length) return err(res, 'Items tidak boleh kosong');
   try {
     const ids = items.map(i => i.product_id);
@@ -354,7 +478,11 @@ app.post('/api/transactions', async (req, res) => {
          LEFT JOIN products p ON p.id = ti.product_id
          WHERE ti.transaction_id = ?`, [trxId]
       );
-      ok(res, { transaction: trxRows[0], items: itemRows }, 'Transaksi berhasil');
+      const [telegram, whatsapp] = await Promise.all([
+        sendTelegramReceipt(trxRows[0], itemRows, telegram_chat_id),
+        sendWhatsAppReceipt(trxRows[0], itemRows, whatsapp_phone)
+      ]);
+      ok(res, { transaction: trxRows[0], items: itemRows, notifications: { telegram, whatsapp } }, 'Transaksi berhasil');
     } catch (e) {
       await conn.rollback();
       conn.release();
