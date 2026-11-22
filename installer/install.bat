@@ -40,10 +40,19 @@ echo [..] Menyiapkan database MySQL...
 node "..\database\setup-db.js"
 if errorlevel 1 goto fail_db
 
+echo [..] Membuat Shortcut di Desktop...
+powershell -Command "$WshShell = New-Object -ComObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\Alfamart POS.lnk'); $Shortcut.TargetPath = '%~dp0start-all.bat'; $Shortcut.WorkingDirectory = '%~dp0'; $Shortcut.Save()"
+if errorlevel 1 (
+    echo [!] Gagal membuat shortcut otomatis di desktop. Anda bisa membuat manual dari file start-all.bat.
+) else (
+    echo [OK] Shortcut "Alfamart POS" berhasil dibuat di Desktop!
+)
+
 echo.
 echo ============================================
 echo   INSTALLASI SELESAI!
-echo   Jalankan start.bat untuk mulai berjualan.
+echo   Shortcut sudah ada di Desktop.
+echo   Cukup klik dua kali ikon "Alfamart POS" di Desktop!
 echo ============================================
 pause
 exit /b 0

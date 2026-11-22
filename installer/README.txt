@@ -1,5 +1,5 @@
 =====================================================
-  ALFAMART POS - PANDUAN INSTALL LOKAL (OFFLINE)
+  HERMART POS - PANDUAN INSTALL LOKAL (OFFLINE)
 =====================================================
 
 SYARAT:
@@ -8,18 +8,20 @@ SYARAT:
 
 CARA INSTALL (cukup SEKALI saja):
 1. Pastikan XAMPP terpasang, buka XAMPP Control Panel,
-   lalu klik START pada MySQL.
+   lalu klik START pada MySQL (dan Apache).
 2. Buka folder "installer", klik dua kali: install.bat
    - Otomatis install dependencies
    - Otomatis membuat file .env
    - Otomatis membuat database + data contoh
+   - Otomatis membuat shortcut "HerMart POS" di Desktop!
 3. Selesai!
 
 CARA MENJALANKAN SETIAP HARI:
-1. Nyalakan XAMPP -> START MySQL
-2. Klik dua kali: start.bat
+1. Cukup klik dua kali ikon **"HerMart POS"** di **Desktop** Anda!
+   (Atau jalankan `installer\start-all.bat`)
+2. XAMPP (Apache & MySQL) akan menyala otomatis.
 3. Browser akan terbuka otomatis di http://localhost:4000
-4. Biarkan jendela hitam (server) tetap terbuka selama berjualan.
+4. Biarkan jendela hitam server tetap terbuka selama berjualan.
 
 AKSES DARI HP / TABLET LAIN (via WiFi yang sama):
 - Saat server jalan, lihat baris "Akses dari perangkat lain"

@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Alfamart POS - Server Kasir
+title HerMart POS - Server Kasir ROBOKOMPUTER
 cd /d "%~dp0backend"
 
 where node >nul 2>nul
@@ -13,7 +13,7 @@ if errorlevel 1 (
 )
 
 echo ============================================
-echo    ALFAMART POS - SERVER KASIR
+echo    HERMART POS - SERVER KASIR
 echo ============================================
 echo.
 echo Server akan berjalan dan browser akan terbuka otomatis.
